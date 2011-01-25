@@ -1,0 +1,40 @@
+@prefix cc:             <http://creativecommons.org/ns#> .
+@prefix dc:             <http://purl.org/dc/elements/1.1/> .
+@prefix dcterms:        <http://purl.org/dc/terms/> .
+@prefix dctype:         <http://purl.org/dc/dcmitype/> .
+@prefix foaf:           <http://xmlns.com/foaf/0.1/> .
+@prefix rdf:            <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos:           <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:            <http://www.w3.org/2001/XMLSchema#> .
+
+# --- Own namespaces --------------------------------------------------
+
+@prefix psh:            <http://psh.ntkcz.cz/skos/> .
+
+psh: a skos:ConceptScheme;
+  dc:title "Polytematický strukturovaný heslář"@cs, "Polythematic Structured Subject Heading System"@en;
+  dc:creator [
+    foaf:name "Národní technická knihovna"@cs, "National Technical Library"@en;
+    foaf:mbox <mailto:psh@stk.cz>
+  ];
+  dc:publisher [
+    foaf:name "Národní technická knihovna"@cs, "National Technical Library"@en;
+    foaf:mbox <mailto:psh@stk.cz>
+  ];
+  dc:subject "systematický selekční jazyk"@cs, "předmětová hesla"@cs,
+    "systematic retrieval language"@en, "subject heading system"@en ,
+    "025.43"^^dcterms:LCC, "Z696.P65"^^dcterms:LCC;
+  dc:description """Polytematický strukturovaný heslář je česko-anglický řízený a měnitelný slovník lexikálních jednotek. Slouží k vyjádření věcného obsahu dokumentů a ke zpětnému vyhledání dokumentů na základě věcných kritérií a je určen především pro knihovny s polytematickými fondy."""@cs, 
+    """Polythematic Structured Subject Heading System (PSH) is as a tool to organize and search for documents by subject. It is a set of subject headings which can be used to describe the document by subject. In its latest version (2.1) PSH is bilingual (Czech-English). Subject headings in both languages are interconnected. PSH contains over 13 000 subject headings and is divided into 44 thematic sections which have been prepared by experts in the respective disciplines in cooperation with librarians. Each subject heading is included in a hierarchy of six (or - under special circumstances - seven) levels according to its semantic content and specificity. The whole system is a tree structure and it represents various concepts from the most general to the more specific ones."""@en;
+  dc:type dctype:Dataset;
+  foaf:homepage <http://www.techlib.cz/cs/katalogy-a-databaze/psh/>;
+  dc:language <http://lexvo.org/id/iso639-3/ces>, "cze"^^dcterms:ISO639-2,
+    <http://lexvo.org/id/iso639-3/eng>, "eng"^^dcterms:ISO639-2;
+  cc:attributionName "Národní technická knihovna"@cs, "National Technical Library"@en;
+  cc:attributionURL <http://www.techlib.cz/cs/katalogy-a-databaze/psh/>;
+  cc:legalcode <http://creativecommons.org/licenses/by-nc-sa/3.0/cz/>;
+  cc:morePermissions <http://www.techlib.cz/cs/katalogy-a-databaze/psh/>;
+  cc:license <http://creativecommons.org/licenses/by-nc-sa/3.0/cz/>;
+  dcterms:created "1993"^^xsd:year;
+  dcterms:modified "2010"^^xsd:year;
+  .
