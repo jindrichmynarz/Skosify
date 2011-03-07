@@ -1,237 +1,36 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-import gzip, libxml2, math, os, re, RDF, subprocess, sys, time, urllib, urllib2
+import csv, gzip, os, re, RDF, subprocess
 from ConfigParser import ConfigParser
 from RDFModel import RDFModel
+from Base import Base
+from Crawler import Crawler
+from MarcARecord import MarcARecord
 
-
-class Base(object):
- 
-  def __init__(self, endpoint, base):
-    self.endpoint = endpoint
-    self.base = base
-    self.wait = 30
-    self.noRecords = 0
-    self.setNumber = 0
-    # Create temp cache for downloaded records if not exists
-    temp = os.path.join(os.getcwd(), "temp")
-    if not (os.path.exists(temp) or os.path.isdir(temp)):
-      os.mkdir(temp)
- 
-  def getParsedRecord(self, docNum):
-    filepath = os.path.join("temp", "{0}.xml".format(str(docNum)))
-    if not os.path.isfile(filepath):
-      params = {
-        "op" : "find_doc",
-        "base" : self.base,
-        "doc_num" : str(docNum)
-      }
-      url = self.endpoint + "?" + urllib.urlencode(params)
-      print "Getting URL: {0}".format(url)
-      try:
-        request = urllib2.urlopen(url)
-        record = request.read()
-        request.close()
-        file = open(filepath, "w")
-        file.write(record)
-        file.close()
-      except urllib2.URLError:
-        time.sleep(self.wait)
-        self.wait *= 2
-        self.getParsedRecord(docNum)
-        pass
-    else:
-      file = open(filepath, "r")
-      record = file.read()
-      file.close()
-    self.wait = 30 # reset the sleep
-    return Record(libxml2.parseDoc(record))
-    
-  def isValidDocNum(self, docNum):        
-    doc = self.getParsedRecord(docNum)
-    errorCheck = doc.getXPath("//error")
-    if errorCheck == []:
-      return True
-    else:
-      return False
- 
-  def getRecordCount(self):   
-    exp = 10
-    previous = 0
-    current = 0
-    
-    while True:
-      previous = current
-      current = int(pow(2, exp))
-      if not (self.isValidDocNum(current)):
-        break
-      exp += 1
-      
-    minimum = previous
-    maximum = current
-    mid = int(math.floor((minimum + maximum)/2))
-    
-    while (minimum < maximum):
-      if minimum + 1 == maximum:
-        if self.isValidDocNum(maximum):
-          mid = maximum
-          break
-        else:
-          mid = minimum
-          break
-      
-      if self.isValidDocNum(mid):
-        minimum = mid
-      else:
-        maximum = mid - 1
-      mid = int(math.floor((minimum + maximum)/2))
-    
-    return mid
-
-
-class Record(object):
-
-  def __init__(self, doc):
-    self.doc = doc
-    
-  def getXPath(self, xpath):
-    results = self.doc.xpathEval(xpath)
-    output = []
-    if type(results) == type([]):
-      for result in results:
-        output.append(result.content)
-    else:
-      output.append(results)
-    return output
-    
-  def getMarc(self, field, subfield):
-    xpath = "/find-doc/record/metadata/oai_marc/varfield[@id='{0}']/subfield[@label='{1}']".format(
-      str(field),
-      str(subfield)
-    )
-    return self.getXPath(xpath)
-    
-        
-class MarcARecord(Record):
- 
-  def __init__(self, record):
-    Record.__init__(self, record.doc)
-    
-  def getID(self):
-    """Return record ID"""
-    id = self.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='001']")
-    if not id == []:
-      return re.search("\d+", id[0]).group()
-    else:
-      return []
-    
-  def isPSH(self):
-    """Checks if the record is PSH record"""
-    termID = self.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='001']")
-    if termID:
-      termID = termID[0]
-      if "PSH" in termID:
-        return True
-    return False
-  
-  def getModifiedDate(self):
-    modifiedDate = self.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='005']")
-    if not modifiedDate == []:
-      match = re.match(
-        "(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})",
-        modifiedDate[0]
-      )
-      # Should I make the hours -1 to compensate that xsd:dataTime is GMT?
-      if match:
-        dateTime = "{0}-{1}-{2}T{3}:{4}:{5}".format(
-          match.group("year"),
-          match.group("month"),
-          match.group("day"),
-          str(int(match.group("hour")) - 1),
-          match.group("minute"),
-          match.group("second")
-        )
-        return dateTime
-      else:
-        raise Exception("{0} - Does not match".format(modifiedDate[0]))
-          
-  def getPrefLabelCS(self):
-    """Returns preferred labels in Czech"""
-    return self.getMarc("150", "a")
-    
-  def getPrefLabelEN(self):
-    """Vrátí preferované záhlaví hesla v angličtině"""
-    return self.getMarc("750", "a")
-    
-  def getNonprefLabelsCS(self):
-    """Vrátí nepreferovaná záhlaví hesla v češtině"""
-    return self.getXPath("/find-doc/record/metadata/oai_marc/varfield[@id='450'][subfield[@label='9']='cze']/subfield[@label='a']")
-    
-  def getNonprefLabelsEN(self):
-    """Vrátí nepreferovaná záhlaví hesla v angličtině"""
-    return self.getXPath("/find-doc/record/metadata/oai_marc/varfield[@id='450'][subfield[@label='9']='eng']/subfield[@label='a']")
-    
-  def getRelatedTerms(self):
-    """Vrátí preferovaná záhlaví příbuzných hesel v češtině"""
-    return self.getXPath("/find-doc/record/metadata/oai_marc/varfield[@id='550'][not(subfield[@label='w'])]/subfield[@label='a']")
-    
-  def getNarrowerTerms(self):
-    """Vrátí preferovaná záhlaví podřazených hesel v češtině"""
-    return self.getXPath("/find-doc/record/metadata/oai_marc/varfield[@id='550'][subfield[@label='w']='h']/subfield[@label='a']")
-    
-  def getBroaderTerms(self):
-    """Vrátí preferovaná znění nadřazených hesel v češtině"""
-    return self.getXPath("/find-doc/record/metadata/oai_marc/varfield[@id='550'][subfield[@label='w']='g']/subfield[@label='a']")
-    
-  def getFMT(self):
-    return self.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='FMT']")
-    
-
-class Crawler(object):
-
-  def __init__(self, base, **kwargs):
-    self.base = base
-    self.status = 1
-    self.range = None
-    if kwargs.has_key("dbrange"):
-      self.range = kwargs["dbrange"]
- 
-  def crawl(self, callback, sleep = 0):
-    if self.range:
-      baseRange = self.range
-    else:
-      begin = int(self.status)
-      baseLen = self.base.getRecordCount()
-      print "[INFO] Crawled base has {0} records.".format(baseLen)
-      baseRange = range(begin, baseLen + 1)
-    for i in baseRange:
-      time.sleep(sleep)
-      self.status = str(i)
-      print "Record {0}".format(self.status)
-      callback(self.base.getParsedRecord(i))     
-          
 
 class Skosify(RDFModel):
   
-  def __init__(self, scheme):
-    """ 
-      scheme ... this argument serves to define base URI for the vocabulary
-    """
-    
+  def __init__(self):
+  
     namespaces = {
       "dc" : "http://purl.org/dc/elements/1.1/",
       "dcterms" : "http://purl.org/dc/terms/",
       "skos" : "http://www.w3.org/2004/02/skos/core#",
     }
     RDFModel.__init__(self, namespaces)
-    self.scheme = RDF.Uri(scheme)
+    self.initConfig()
+    self.scheme = self.config.get("scheme", "namespace")
     self.translationTable = {}
     self.cache = {}
     self.ids = []
     self.termList = []
     self.initTables()
   
+  def initConfig(self):
+    self.config = ConfigParser()
+    self.config.read("config.ini")
+    
   def initTables(self):
     self.dicts = {}
     self.tables = {}
@@ -261,7 +60,7 @@ class Skosify(RDFModel):
       raise Exception(values)
     
   def testRecord(self, record):
-    fmt = record.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='FMT']")
+    fmt = record.getFMT()
     if not fmt == []:
       if fmt[0].strip() == "VA":
         print "Valid record"
@@ -568,7 +367,9 @@ class Skosify(RDFModel):
           )
     
   def addTopConcepts(self):
-    # SPARQL query for the skos:Concepts that does not have skos:broader
+    """
+      SPARQL query for the skos:Concepts that does not have skos:broader
+    """
     print "[INFO] Adding top concepts"
     query = """
       PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -582,9 +383,8 @@ class Skosify(RDFModel):
     """
     for topConcept in self.sparql(query):
       topConcept = str(topConcept["s"].uri)
-      print topConcept
       self.appendToSubject(
-        self.scheme,
+        RDF.Uri(self.scheme),
         [
           [
             self.ns["skos"]["hasTopConcept"],
@@ -593,48 +393,113 @@ class Skosify(RDFModel):
         ]
       )
   
+  def processCSVLinks(self, reader):
+    for line in reader:
+      self.appendToSubject(
+        RDF.Uri("{0}{1}".format(self.scheme, line[0])),
+        [
+          [
+            self.ns["skos"][line[3].replace("skos:", "")],
+            RDF.Uri(line[2]),
+          ],
+        ]
+      )
+    
+  def addLinks(self):
+    """
+      Add links to external datasets from CSV files
+    """
+    if self.config.has_option("sources", "linksPath"):
+      print "[INFO] Adding external links"
+      linksPath = self.config.get("sources", "linksPath")
+      linksFiles = os.listdir(linksPath)
+      for linksFile in linksFiles:
+        file = open(os.path.join(linksPath, linksFile), "r")
+        reader = csv.reader(file, delimiter = ";")
+        self.processCSVLinks(reader)
+        file.close()
+        
   def write(self):
     """
       Write RDF dumps
     """
-    path = os.path.join(os.getcwd(), "dumps")
+    path = os.path.join(
+      os.getcwd(),
+      self.config.get("dumps", "path")
+    )
     if not (os.path.exists(path) or os.path.isdir(path)):
       os.mkdir(path)
     # Write Turtle dump
-    RDFModel.write(self, os.path.join(path, "psh-skos.ttl"))
-    # Convert Turtle to RDF/XML
-    rdfxml = open(os.path.join(path, "psh-skos.rdf"), "w")
-    subprocess.call(
-      ["rapper", "-i", "turtle", "-o", "rdfxml-abbrev", "psh-skos.ttl"],
-      stdout = rdfxml
+    RDFModel.write(
+      self, os.path.join(
+        path,
+        "{0}.ttl".format(self.config.get("dumps", "filename"))
+      )
     )
+    # Convert Turtle to RDF/XML
+    rdfxml = open(
+      os.path.join(
+        path,
+        "{0}.rdf".format(self.config.get("dumps", "filename"))
+      ), "w"
+    )
+    subprocess.call([
+      "rapper",
+      "-i", "turtle",
+      "-o", "rdfxml-abbrev",
+      os.path.join(
+        path,
+        "{0}.ttl".format(
+          self.config.get("dumps", "filename")
+        )
+      )
+    ], stdout = rdfxml)
     rdfxml.close()
-    rdfxml = open(os.path.join(path, "psh-skos.rdf"), "r").read()
+    rdfxml = open(
+      os.path.join(path, "{0}.rdf".format(
+        self.config.get("dumps", "filename"))
+      ),
+      "r"
+    ).read()
     # Save gzipped RDF/XML
-    gzipped = gzip.open(os.path.join(path, "psh-skos.rdf.gz"), "wb")
+    gzipped = gzip.open(
+      os.path.join(path, "{0}.rdf.gz".format(
+        self.config.get("dumps", "filename"))
+      ),
+      "wb"
+    )
     gzipped.write(rdfxml)
     gzipped.close()
     # Save zipped RDF/XML
-    subprocess.call(
-      ["zip", "-r", os.path.join(path, "psh-skos.zip"), os.path.join(path, "psh-skos.rdf")]
-    )
+    subprocess.call([
+      "zip",
+      "-r", 
+      os.path.join(path, "{0}.zip".format(
+        self.config.get("dumps", "filename"))
+      ),
+      os.path.join(path, "{0}.rdf".format(
+        self.config.get("dumps", "filename"))
+      )
+    ])
     
-  def main(self, endpoint, base, **kwargs):
-    if kwargs.has_key("bootstrap"):
-      self.bootstrap(filename = kwargs["bootstrap"])
-    b = Base(endpoint = endpoint, base = base)
+  def main(self):
+    if self.config.has_option("sources", "bootstrap"):
+      self.bootstrap(
+        filename = self.config.get("sources", "bootstrap")
+      )
+    b = Base(
+      endpoint = self.config.get("xserver", "endpoint"),
+      base = self.config.get("xserver", "base")
+    )
     c = Crawler(base = b)
     c.crawl(callback = self.callback)
     self.processCache()
     self.addTopConcepts()
+    self.addLinks()
     self.write()
     self.writeTables()
 
    
 if __name__ == "__main__":
-  skosifier = Skosify(scheme = "http://psh.ntkcz.cz/skos/")
-  skosifier.main(
-    endpoint = "http://aleph.techlib.cz/X",
-    base = "STK10",
-    bootstrap = "bootstrap.ttl"
-  )
+  skosifier = Skosify()
+  skosifier.main()
