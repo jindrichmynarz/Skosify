@@ -45,10 +45,14 @@ class Base (object):
       record = file.read()
       file.close()
     self.wait = 30 # reset the sleep
-    return Record(libxml2.parseDoc(record))
+    return {
+      "docnum" : docNum,
+      "record" : Record(libxml2.parseDoc(record)),
+    }
     
   def isValidDocNum(self, docNum):        
     doc = self.getParsedRecord(docNum)
+    doc = doc["record"]
     errorCheck = doc.getXPath("//error")
     if errorCheck == []:
       return True

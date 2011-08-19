@@ -5,7 +5,7 @@ import re
 from Record import Record
 
 
-class MarcARecord(Record):
+class MARCARecord(Record):
  
   def __init__(self, record):
     Record.__init__(self, record.doc)
@@ -27,6 +27,14 @@ class MarcARecord(Record):
         return True
     return False
   
+  def isPHNK(self):
+    termID = self.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='001']")
+    if termID:
+      termID = termID[0]
+      if "ph" in termID:
+        return True
+    return False
+    
   def getModifiedDate(self):
     modifiedDate = self.getXPath("/find-doc/record/metadata/oai_marc/fixfield[@id='005']")
     if not modifiedDate == []:

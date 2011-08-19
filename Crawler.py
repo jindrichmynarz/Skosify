@@ -8,10 +8,11 @@ class Crawler (object):
     Class for crawling through the records in an Aleph X Server base
   """
   
-  def __init__(self, base, **kwargs):
+  def __init__(self, base, skip = [], **kwargs):
     self.base = base
     self.status = 1
     self.range = None
+    self.skip = skip
     if kwargs.has_key("dbrange"):
       self.range = kwargs["dbrange"]
  
@@ -23,8 +24,9 @@ class Crawler (object):
       baseLen = self.base.getRecordCount()
       print "[INFO] Crawled base has {0} records.".format(baseLen)
       baseRange = range(begin, baseLen + 1)
+    for skipItem in self.skip:
+      baseRange.remove(skipItem)
     for i in baseRange:
       time.sleep(sleep)
-      self.status = str(i)
-      print "Record {0}".format(self.status)
+      print "Record {!s}".format(i)
       callback(self.base.getParsedRecord(i))

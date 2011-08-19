@@ -6,7 +6,7 @@ from ConfigParser import ConfigParser
 from RDFModel import RDFModel
 from Base import Base
 from Crawler import Crawler
-from MarcARecord import MarcARecord
+from MARCARecord import MARCARecord
 
 
 class Skosify(RDFModel):
@@ -70,7 +70,7 @@ class Skosify(RDFModel):
       return False
     
   def callback(self, record):
-    record = MarcARecord(record)
+    record = MARCARecord(record["record"])
     if self.testRecord(record) and record.isPSH():
       id = record.getID()
       if not id == []:
