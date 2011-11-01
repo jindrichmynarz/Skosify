@@ -274,8 +274,6 @@ class Skosify(RDFModel):
       uri = self.translationTable[term]
     except KeyError:
       print "[ERROR] Key not found: {0}".format(term)
-      for record in self.b.searchBase(term):
-        self.callback(record)
     return RDF.Uri(uri)
     
   def processCache(self):
