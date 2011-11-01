@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-import csv, gzip, os, re, RDF, subprocess
+import csv, gzip, os, re, RDF, shutil, subprocess
 from ConfigParser import ConfigParser
 from RDFModel import RDFModel
 from Base import Base
@@ -498,6 +498,7 @@ class Skosify(RDFModel):
     self.addLinks()
     self.write()
     self.writeTables()
+    shutil.rmtree("temp")
 
    
 if __name__ == "__main__":
