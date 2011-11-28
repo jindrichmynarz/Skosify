@@ -272,9 +272,9 @@ class Skosify(RDFModel):
   def translate(self, term):
     try: 
       uri = self.translationTable[term]
+      return RDF.Uri(uri)
     except KeyError:
       print "[ERROR] Key not found: {0}".format(term)
-    return RDF.Uri(uri)
     
   def processCache(self):
     for item in self.cache:
@@ -471,7 +471,7 @@ class Skosify(RDFModel):
     # Save zipped RDF/XML
     subprocess.call([
       "zip",
-      "-r", 
+      "-rj", 
       os.path.join(path, "{0}.zip".format(
         self.config.get("dumps", "filename"))
       ),
